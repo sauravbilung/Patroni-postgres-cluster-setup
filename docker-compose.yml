@@ -11,9 +11,9 @@ services:
     volumes:
       - ./patroni-pg1.yml:/etc/patroni.yml
       - tmpfs:/run/postgresql
-    ports:
-      - "5433:5432"
-      - "8008:8008"
+    ports: 
+      - "5433:5432" # PostgreSQL running in container pg1 on its internal port 5432
+      - "8008:8008" # HAProxy connects to /health on pg1:8008
     depends_on:
       - zookeeper
 
@@ -36,7 +36,7 @@ services:
       - ./patroni-pg3.yml:/etc/patroni.yml
       - tmpfs:/run/postgresql
     ports:
-      - "5435:5432"
+      - "5435:5432" 
       - "8010:8008"
     depends_on:
       - zookeeper

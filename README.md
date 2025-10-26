@@ -72,6 +72,7 @@ pg_cluster-pg1-1
 pg_cluster-pg2-1
 pg_cluster-pg3-1
 pg_cluster-haproxy-1
+pg_cluster-zookeeper-1 
 ```
 
 ---
@@ -132,6 +133,12 @@ docker logs pg_cluster-haproxy-1
 ```
 Shows runtime logs for each service. Add `-f` to follow logs live (e.g., `docker logs -f pg_cluster-haproxy-1`).
 
+---
+### 🩺 View Health status 
+
+curl http://localhost:8008
+curl http://localhost:8009
+curl http://localhost:8010
 ---
 
 ### 🧩 Access a Running Container
