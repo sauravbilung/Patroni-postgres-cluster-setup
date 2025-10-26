@@ -1,0 +1,66 @@
+scope: pg-cluster
+name: pg2
+
+restapi:
+  listen: 0.0.0.0:8008
+  connect_address: pg2:8008
+
+zookeeper:
+  hosts: zookeeper:2181
+
+postgresql:
+  listen: 0.0.0.0:5432
+  connect_address: pg2:5432
+  data_dir: /var/lib/postgresql/data
+  bin_dir: /usr/lib/postgresql/17.2/bin
+
+  authentication:
+    superuser:
+      username: postgres
+      password: superuser
+    replication:
+      username: replicator
+      password: replicator
+
+  parameters:
+    max_connections: 100
+    max_locks_per_transaction: 64
+    max_worker_processes: 8
+    wal_level: replica
+    hot_standby: "on"
+    wal_keep_segments: 8
+    max_wal_senders: 5
+    max_replication_slots: 5
+    checkpoint_timeout: 30
+    synchronous_commit: "on"
+    synchronous_standby_names: "*"
+    password_encryption: "scram-sha-256"
+
+  pg_hba:
+    - host all all 0.0.0.0/0 trust
+    - host all all 127.0.0.1/32 trust
+    - host all all ::1/128 trust
+    - host replication replicator 0.0.0.0/0 trust
+
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 5
+    retry_timeout: 5
+    maximum_lag_on_failover: 1048576
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        wal_log_hints: "on"
+
+  initdb:
+    - encoding: UTF8
+    - data-checksums
+
+  users:
+    admin:
+      password: admin
+      options:
+        - createrole
+        - createdb

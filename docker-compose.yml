@@ -1,0 +1,59 @@
+services:
+  zookeeper:
+    image: zookeeper:latest
+    ports:
+      - "2181:2181"
+
+  pg1:
+    image: ongres/patroni:latest
+    command: ["patroni", "/etc/patroni.yml"]
+    volumes:
+      - ./patroni-pg1.yml:/etc/patroni.yml
+      - tmpfs:/run/postgresql
+    ports:
+      - "5433:5432"
+      - "8008:8008"
+    depends_on:
+      - zookeeper
+
+  pg2:
+    image: ongres/patroni:latest
+    command: ["patroni", "/etc/patroni.yml"]
+    volumes:
+      - ./patroni-pg2.yml:/etc/patroni.yml
+      - tmpfs:/run/postgresql
+    ports:
+      - "5434:5432"
+      - "8009:8008"
+    depends_on:
+      - zookeeper
+
+  pg3:
+    image: ongres/patroni:latest
+    command: ["patroni", "/etc/patroni.yml"]
+    volumes:
+      - ./patroni-pg3.yml:/etc/patroni.yml
+      - tmpfs:/run/postgresql
+    ports:
+      - "5435:5432"
+      - "8010:8008"
+    depends_on:
+      - zookeeper
+
+  haproxy:
+    image: haproxy:latest
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
+    ports:
+      - "5432:5432"
+    depends_on:
+      - pg1
+      - pg2
+      - pg3
+
+volumes:
+  tmpfs:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
