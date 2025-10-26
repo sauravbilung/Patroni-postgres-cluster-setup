@@ -10,7 +10,7 @@ A fully containerized **PostgreSQL HA cluster** using **Patroni**, **ZooKeeper**
 |------------|------|
 | **Patroni** | Orchestrates PostgreSQL cluster members, manages replication, leader election, and failover. |
 | **ZooKeeper** | Serves as the distributed consensus store (DCS) used by Patroni for coordination. |
-| **HAProxy** | Provides a single connection endpoint (`5432`) and routes traffic automatically to the current Patroni leader. |
+| **HAProxy** | Provides multiple frontend endpoints for transactional (leader), analytical (replica), and hybrid workloads. |
 | **PostgreSQL** | Actual database instances managed by Patroni, running as three nodes (`pg1`, `pg2`, `pg3`). |
 
 ---
@@ -24,17 +24,18 @@ Defines and orchestrates all containers:
 - **HAProxy** (routing to leader)
 
 #### Exposed Ports
-| Component | Port | Description |
-|------------|------|-------------|
-| `pg1` | 5433 | PostgreSQL (pg1) |
-| `pg2` | 5434 | PostgreSQL (pg2) |
-| `pg3` | 5435 | PostgreSQL (pg3) |
-| `pg1` | 8008 | Patroni REST API |
-| `pg2` | 8009 | Patroni REST API |
-| `pg3` | 8010 | Patroni REST API |
-| `haproxy` | 5432 | Cluster entrypoint (routes to leader) |
 
-> Uses a **tmpfs volume** for `/run/postgresql` to improve socket I/O performance.
+| Component | Port | Description             |
+|-----------|------|-------------------------|
+| `pg1`     | 5433 | PostgreSQL (pg1)        |
+| `pg2`     | 5434 | PostgreSQL (pg2)        |
+| `pg3`     | 5435 | PostgreSQL (pg3)        |
+| `pg1`     | 8008 | Patroni REST API        |
+| `pg2`     | 8009 | Patroni REST API        |
+| `pg3`     | 8010 | Patroni REST API        |
+| `haproxy` | 5432 | Leader-only access      |
+| `haproxy` | 5433 | Replicas-only access    |
+| `haproxy` | 5434 | Leader + Replicas (HA)  |
 
 ---
 
@@ -57,9 +58,26 @@ Each node (`patroni-pg1.yml`, `patroni-pg2.yml`, `patroni-pg3.yml`) contains nod
 ---
 
 ### 3. `haproxy.cfg`
+
 HAProxy is configured to:
-- Forward traffic to the **current Patroni leader** only.
-- Automatically detect role changes using Patroni’s REST health check.
+
+- Forward PostgreSQL traffic based on **node roles (leader or replica)** using **Patroni’s REST-based `/health` endpoint**.
+- Support **three access modes** via different frontend ports:
+
+  | Port | Access Mode       | Target Nodes       | Use Case                      |
+  |------|-------------------|--------------------|-------------------------------|
+  | 5432 | Leader Only       | Primary only       | OLTP, strict consistency      |
+  | 5433 | Replicas Only     | All replicas       | OLAP, read scaling            |
+  | 5434 | Any Available     | Primary + Replicas | High availability reads       |
+
+- HAProxy uses HTTP health checks against each node’s `/health` endpoint to:
+  - Detect role (`"role": "primary"` or `"role": "replica"`)
+  - Update routing dynamically if failover happens
+
+This ensures:
+- **Strictly consistent** requests go to the current leader
+- **Reporting/analytics** workloads are load-balanced across replicas
+- **Hybrid/fallback reads** work even if the leader goes down
 
 ---
 
@@ -136,9 +154,11 @@ Shows runtime logs for each service. Add `-f` to follow logs live (e.g., `docker
 ---
 ### 🩺 View Health status 
 
+```bash
 curl http://localhost:8008
 curl http://localhost:8009
 curl http://localhost:8010
+```
 ---
 
 ### 🧩 Access a Running Container
