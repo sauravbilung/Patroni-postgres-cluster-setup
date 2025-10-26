@@ -1,3 +1,4 @@
+name: pg_cluster
 services:
   zookeeper:
     image: zookeeper:latest
